@@ -159,6 +159,16 @@ void wspeedIRQ()
 //---------------------------------------------------------------
 void setup()
 {
+
+    Particle.variable("WindSpeed", &windspeedmph, DOUBLE);
+    Particle.variable("WindDir", &winddir, INT);
+    Particle.variable("Rain", &rainin, DOUBLE);
+    Particle.variable("Temp", &tempf, DOUBLE);
+    Particle.variable("Humidity", &humidity, DOUBLE);
+    Particle.variable("BaroTemp", &baroTemp, DOUBLE);
+    Particle.variable("Pressure", &pascals, DOUBLE);
+    Particle.variable("SoilTemp", &soilTemp, DOUBLE);
+    Particle.variable("SoilMoist", &soilMoisture, INT);
     // DS18B20 initialization
     sensors.begin();
     sensors.setResolution(inSoilThermometer, TEMPERATURE_PRECISION);
