@@ -1,4 +1,3 @@
-
 /******************************************************************************
   SparkFun_Photon_Weather_Basic_Soil_Meters.ino
   SparkFun Photon Weather Shield basic example with soil moisture and temp
@@ -41,10 +40,6 @@ use the following
   IDE: Particle Dev
   Hardware Platform: Particle Photon
                        Particle Core
-  This code is beerware; if you see me (or any other SparkFun
-  employee) at the local, and you've found our code helpful,
-  please buy us a round!
-  Distributed as-is; no warranty is given.
 *******************************************************************************/
 #include "SparkFun_Photon_Weather_Shield_Library.h"
 #include "OneWire.h"
@@ -68,7 +63,7 @@ int WSPEED = D3;
 //(found in the Firmware folder in the Photon Weather Shield Repo)
 /***********REPLACE THIS ADDRESS WITH YOUR ADDRESS*************/
 DeviceAddress inSoilThermometer =
-{0x28, 0xFF, 0x4E, 0x2A, 0x70, 0x16, 0x4, 0xA0};//Waterproof temp sensor address
+{ 0x28, 0x4, 0x6E, 0xB7, 0x9, 0x0, 0x0, 0xE8};//Waterproof temp sensor address
 /***********REPLACE THIS ADDRESS WITH YOUR ADDRESS*************/
 
 //Global Variables
@@ -89,32 +84,33 @@ byte minutes_10m; //Keeps track of where we are in wind gust/dir over last 10 mi
 
 byte windspdavg[120]; //120 bytes to keep track of 2 minute average
 int winddiravg[120]; //120 ints to keep track of 2 minute average
-float windgust_10m[10]; //10 floats to keep track of 10 minute max
+double windgust_10m[10]; //10 floats to keep track of 10 minute max
 int windgustdirection_10m[10]; //10 ints to keep track of 10 minute max
 volatile float rainHour[60]; //60 floating numbers to keep track of 60 minutes of rain
 
 //These are all the weather values that wunderground expects:
-int winddir = 0; // [0-360 instantaneous wind direction]
-float windspeedmph = 0; // [mph instantaneous wind speed]
-float windgustmph = 0; // [mph current wind gust, using software specific time period]
+
+double windspeedmph = 0; // [mph instantaneous wind speed]
+double windgustmph = 0; // [mph current wind gust, using software specific time period]
 int windgustdir = 0; // [0-360 using software specific time period]
-float windspdmph_avg2m = 0; // [mph 2 minute average wind speed mph]
-int winddir_avg2m = 0; // [0-360 2 minute average wind direction]
-float windgustmph_10m = 0; // [mph past 10 minutes wind gust mph ]
+double windspdmph_avg2m = 0; // [mph 2 minute average wind speed mph]
+int winddir_avg2m = 0; // [0-360 2 minute average wind irection]
+double windgustmph_10m = 0; // [mph past 10 minutes wind gust mph ]
 int windgustdir_10m = 0; // [0-360 past 10 minutes wind gust direction]
-float rainin = 0; // [rain inches over the past hour)] -- the accumulated rainfall in the past 60 min
+double rainin = 0; // [rain inches over the past hour)] -- the accumulated rainfall in the past 60 min
 long lastWindCheck = 0;
 volatile float dailyrainin = 0; // [rain inches so far today in local time]
 
-float humidity = 0;
-float tempf = 0;
+int winddir = 0; // [0-360 instantaneous wind direction]
+double tempf = 0;
+double humidity = 0;
+double pascals = 0;
 double InTempC = 0;//original temperature in C from DS18B20
-float soiltempf = 0;//converted temperature in F from DS18B20
-float pascals = 0;
-float altf = 0;
-float baroTemp = 0;
-int soilMoisture = 0;
-int soilTemp = 0; //PT Added Aug 17 2018
+double soiltempf = 0;//converted temperature in F from DS18B20
+double soilMoisture = 0;
+double altf = 0;
+double baroTemp = 0;
+
 
 int count = 0;
 
@@ -159,16 +155,18 @@ void wspeedIRQ()
 //---------------------------------------------------------------
 void setup()
 {
-
-    Particle.variable("WindSpeed", &windspeedmph, DOUBLE);
+    
     Particle.variable("WindDir", &winddir, INT);
+    Particle.variable("WindSpeed", &windspeedmph, DOUBLE);
     Particle.variable("Rain", &rainin, DOUBLE);
     Particle.variable("Temp", &tempf, DOUBLE);
     Particle.variable("Humidity", &humidity, DOUBLE);
     Particle.variable("BaroTemp", &baroTemp, DOUBLE);
     Particle.variable("Pressure", &pascals, DOUBLE);
-    Particle.variable("SoilTemp", &soilTemp, DOUBLE);
-    Particle.variable("SoilMoist", &soilMoisture, INT);
+    Particle.variable("SoilTemp", &soiltempf, DOUBLE);
+    Particle.variable("SoilMoist", &soilMoisture, DOUBLE);
+    
+  
     // DS18B20 initialization
     sensors.begin();
     sensors.setResolution(inSoilThermometer, TEMPERATURE_PRECISION);
@@ -218,10 +216,15 @@ void setup()
 
     // turn on interrupts
     interrupts();
+ 
 }
+
+
 //---------------------------------------------------------------
 void loop()
 {
+    
+      
   //Keep track of which minute it is
   if(millis() - lastSecond >= 1000)
   {
@@ -232,7 +235,7 @@ void loop()
     if(++seconds_2m > 119) seconds_2m = 0;
 
     //Calc the wind speed and direction every second for 120 second to get 2 minute average
-    float currentSpeed = get_wind_speed();
+    double currentSpeed = get_wind_speed();
     //float currentSpeed = random(5); //For testing
     int currentDirection = get_wind_direction();
     windspdavg[seconds_2m] = (int)currentSpeed;
@@ -274,51 +277,34 @@ void loop()
     {
        printInfo();
        count = 0;
-    // PT ADDED Publish the data
-        publishToParticle(tempf,humidity,pascals,rainin,windspeedmph,windgustmph,winddir,soilMoisture,soilTemp);
-    //
+    
+    // PT ADDED Publish the data 
+        publishToParticle(winddir, windspeedmph, baroTemp, rainin, tempf, humidity, pascals, soiltempf, soilMoisture);
+      
+    
     }
   }
 }
 
-//PT ADDED Aug 17 2018
-void publishToParticle(float tempf,float humidity,float pascals,float rainin,float windspeedmph,float windgustmph,float winddir, float soilMoisture, float soilTemp) {
-    Particle.publish("weather",
-                        String::format("%0.1f°F, %0.0f%%, %0.2f kPa, %0.2f in, Avg:%0.0fmph, Gust:%0.0fmph, Dir:%0.0f°, SoilMoist:%0.0f, SoilTemp:%0.1f .",
-                            tempf,humidity,pascals,rainin,windspeedmph,windgustmph,winddir,soilMoisture,soilTemp),
+ 
+       //PT ADDED Aug 17 2018
+    void publishToParticle(int winddir, double windspeedmph, double baroTemp, double rainin, double tempf, double humidity, double pascals, double soiltempf, double soilMoisture) {
+    Particle.publish("weather", 
+                        String::format("Dir:%0d dir, WindSpeed:%0.0fmph, BaroTemp: %0.1f°F, RainFall: %0.2f in, Temp: %0.1f°F, Humidity: %0.0f%%, Pressure: %0.2f kPa, SoilTemp:%0.1f°F, SoilMoist:%0.0f",
+                            winddir, windspeedmph, baroTemp, rainin, tempf, humidity, pascals, soiltempf, soilMoisture),
                         60 , PRIVATE);
 
-    // PT Added Aug 3 2018 for soil moisture
-
-
-
-    delay(1000);//take a reading every second
-    //This time is used so you can test the sensor and see it change in real-time.
-    //For in-plant applications, you will want to take readings much less frequently.
-
-        //If your soil is too dry, turn on Red LED to notify you
-        //This value will vary depending on your soil and plant
-        if(soilMoisture < 200)
-        {
-          // take control of the RGB LED
-          RGB.control(true);
-          RGB.color(255, 0, 0);//set RGB LED to Red
-          //Particle.publish("Soil Moisture","LOW",60,PRIVATE);
-        }
-        else
-        {
-          // resume normal operation
-          RGB.control(false);//set RGB LED to normal (cyan)
-          //Particle.publish("Soil Moisture","HIGH",60,PRIVATE);
+  
         }
 //End PT ADD Aug 17 2018
-}
-
+     
 
 
 //---------------------------------------------------------------
 void printInfo()
 {
+    
+
   //This function prints the weather data out to the default Serial Port
       Serial.print("Wind_Dir:");
       switch (winddir)
@@ -352,11 +338,11 @@ void printInfo()
           // if nothing else matches, do the
           // default (which is optional)
       }
-
+    
       Serial.print(" Wind_Speed:");
       Serial.print(windspeedmph, 1);
       Serial.print("mph, ");
-
+      
       Serial.print("Rain:");
       Serial.print(rainin, 2);
       Serial.print("in., ");
@@ -398,6 +384,9 @@ void printInfo()
       //value, which can range from 0 (completely dry) to the value of the
       //materials' porosity at saturation. The sensor tends to max out between
       //3000 and 3500.
+      
+      
+     
 }
 //---------------------------------------------------------------
 void getSoilTemp()
@@ -460,13 +449,13 @@ int get_wind_direction()
 }
 //---------------------------------------------------------------
 //Returns the instataneous wind speed
-float get_wind_speed()
+double get_wind_speed()
 {
-  float deltaTime = millis() - lastWindCheck; //750ms
+  double deltaTime = millis() - lastWindCheck; //750ms
 
   deltaTime /= 1000.0; //Covert to seconds
 
-  float windSpeed = (float)windClicks / deltaTime; //3 / 0.750s = 4
+  double windSpeed = (float)windClicks / deltaTime; //3 / 0.750s = 4
 
   windClicks = 0; //Reset and start watching for new wind
   lastWindCheck = millis();
@@ -516,7 +505,7 @@ void getWeather()
     windgustdir = 0;
 
     //Calc windspdmph_avg2m
-    float temp = 0;
+    double temp = 0;
     for(int i = 0 ; i < 120 ; i++)
       temp += windspdavg[i];
     temp /= 120.0;
